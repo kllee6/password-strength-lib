@@ -67,8 +67,11 @@ recognizable structure (a word plus a digit, a name and a year, and
 so on). The pattern checks catch some of the most common ways real
 passwords fall short of that assumption, but this is not a
 replacement for a proper breach-corpus check like a k-anonymity
-lookup against Have I Been Pwned, and the common-password list
-shipped here is intentionally tiny for now.
+lookup against Have I Been Pwned. The common-password list shipped
+here is a curated sample of the passwords that repeatedly top
+published breach analyses, not a full corpus import, so it will
+still miss plenty of passwords that a real k-anonymity lookup would
+catch.
 
 ## Installation
 

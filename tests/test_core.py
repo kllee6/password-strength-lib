@@ -58,6 +58,15 @@ class CommonPasswordTests(unittest.TestCase):
     def test_uncommon_password_is_not_flagged(self):
         self.assertFalse(is_common_password("kj3mdlq9zP"))
 
+    def test_keyboard_walk_password_is_flagged(self):
+        self.assertTrue(is_common_password("1qaz2wsx"))
+
+    def test_name_based_password_is_flagged(self):
+        self.assertTrue(is_common_password("Jordan23"))
+
+    def test_pop_culture_password_is_flagged(self):
+        self.assertTrue(is_common_password("blink182"))
+
 
 class ScoreTests(unittest.TestCase):
     def test_empty_password_scores_zero(self):
