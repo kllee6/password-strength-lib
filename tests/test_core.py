@@ -2,6 +2,7 @@ import unittest
 
 from password_strength import (
     char_classes,
+    contains_date_pattern,
     contains_keyboard_walk,
     estimate_entropy_bits,
     is_common_password,
@@ -49,6 +50,27 @@ class PatternDetectionTests(unittest.TestCase):
 
     def test_no_keyboard_walk_in_unrelated_string(self):
         self.assertFalse(contains_keyboard_walk("kj3mdlq9"))
+
+    def test_detects_bare_birth_year(self):
+        self.assertTrue(contains_date_pattern("mypass1990"))
+
+    def test_detects_date_with_dashes(self):
+        self.assertTrue(contains_date_pattern("03-15-1990"))
+
+    def test_detects_date_with_slashes(self):
+        self.assertTrue(contains_date_pattern("15/03/1990"))
+
+    def test_detects_date_without_separators(self):
+        self.assertTrue(contains_date_pattern("19900315"))
+
+    def test_no_date_in_short_ambiguous_digit_run(self):
+        self.assertFalse(contains_date_pattern("kj93042"))
+
+    def test_no_date_for_year_outside_plausible_range(self):
+        self.assertFalse(contains_date_pattern("mypass1850"))
+
+    def test_no_date_in_random_looking_string(self):
+        self.assertFalse(contains_date_pattern("kj3mdlq9zP!"))
 
 
 class CommonPasswordTests(unittest.TestCase):

@@ -6,8 +6,8 @@ dependency-free Python library that scores a password locally using
 a few plain heuristics: an entropy estimate based on the character
 classes used, plus penalties for patterns that make a password
 weaker than its raw entropy suggests (repeated characters, sequential
-runs like `abcd`, keyboard walks like `qwerty`, and membership in a
-list of commonly reused passwords).
+runs like `abcd`, keyboard walks like `qwerty`, dates like `1990` or
+`03-15-1990`, and membership in a list of commonly reused passwords).
 
 Every public function is pure: same input, same output, no I/O, no
 hidden state. That makes it straightforward to unit test and safe to
@@ -39,6 +39,7 @@ to build your own scoring policy instead of using `score()`:
 ```python
 from password_strength import (
     char_classes,
+    contains_date_pattern,
     contains_keyboard_walk,
     estimate_entropy_bits,
     is_common_password,
@@ -51,6 +52,8 @@ estimate_entropy_bits("Ab1!cdef") # bits, assuming uniform random selection
 longest_sequential_run("x9abcdy") # 4, for the "abcd" run
 longest_repeated_run("aaabbc")    # 3, for the "aaa" run
 contains_keyboard_walk("myqwerty1") # True
+contains_date_pattern("mypass1990")  # True, reads as a birth year
+contains_date_pattern("03-15-1990")  # True, reads as a full date
 is_common_password("Password1")   # True (checked case-insensitively)
 ```
 

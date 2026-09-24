@@ -9,6 +9,7 @@ random strings at it in a test and trust the result.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 
 from .common_passwords import COMMON_PASSWORDS
@@ -119,6 +120,85 @@ def contains_keyboard_walk(password: str, min_run: int = 4) -> bool:
     return False
 
 
+_BARE_DATE_RUN = re.compile(r"\d{4,8}")
+_SEPARATED_DATE_PATTERNS = tuple(
+    re.compile(rf"(\d{{1,4}}){re.escape(sep)}(\d{{1,2}}){re.escape(sep)}(\d{{1,4}})")
+    for sep in "-/._"
+)
+
+
+def _valid_date_part(role: str, digits: str) -> bool:
+    """Whether `digits` is a plausible value for a day, month, or year.
+
+    Two-digit years are accepted regardless of value since there is no
+    way to tell "12" the year from "12" some other number without more
+    context -- zxcvbn's own date matcher makes the same call.
+    """
+    value = int(digits)
+    if role == "year":
+        if len(digits) == 4:
+            return 1900 <= value <= 2029
+        return len(digits) == 2
+    if role == "month":
+        return len(digits) in (1, 2) and 1 <= value <= 12
+    if role == "day":
+        return len(digits) in (1, 2) and 1 <= value <= 31
+    return False
+
+
+def _is_date_triple(part_a: str, part_b: str, part_c: str) -> bool:
+    """Whether three digit groups can be read as a day/month/year date,
+    trying the orderings people actually write dates in.
+
+    A two-digit year is ambiguous enough on its own that it is only
+    accepted alongside a two-digit month and day (e.g. "033099"), not
+    single digits -- otherwise almost any run of a few digits could be
+    misread as some date, which defeats the point of the check.
+    """
+    for order in (("month", "day", "year"), ("day", "month", "year"), ("year", "month", "day")):
+        roles = dict(zip(order, (part_a, part_b, part_c)))
+        if not all(_valid_date_part(role, digits) for role, digits in roles.items()):
+            continue
+        if len(roles["year"]) == 2 and (len(roles["month"]) != 2 or len(roles["day"]) != 2):
+            continue
+        return True
+    return False
+
+
+def _digit_triples(digits: str):
+    """All ways to split a run of digits into three non-empty groups of
+    1-4 digits each, e.g. "0399" -> ("0", "3", "99"), ("03", "9", "9"), ..."""
+    length = len(digits)
+    for i in range(1, min(4, length - 2) + 1):
+        for j in range(1, min(4, length - i - 1) + 1):
+            k = length - i - j
+            if 1 <= k <= 4:
+                yield digits[:i], digits[i : i + j], digits[i + j :]
+
+
+def contains_date_pattern(password: str) -> bool:
+    """Whether the password contains something that reads as a date:
+    a bare four-digit year like "1990", or a day/month/year triple with
+    or without separators, e.g. "03151990", "1990-03-15", "15/03/90".
+
+    Dates are a favorite substitute for "something memorable" -- a
+    birth year or anniversary -- so they deserve the same suspicion as
+    a dictionary word.
+    """
+    for pattern in _SEPARATED_DATE_PATTERNS:
+        for match in pattern.finditer(password):
+            if _is_date_triple(*match.groups()):
+                return True
+
+    for match in _BARE_DATE_RUN.finditer(password):
+        digits = match.group()
+        if len(digits) == 4 and 1900 <= int(digits) <= 2029:
+            return True
+        if any(_is_date_triple(*triple) for triple in _digit_triples(digits)):
+            return True
+    return False
+
+
 def is_common_password(password: str) -> bool:
     """Whether the password (case-insensitively) is in the built-in
     list of frequently reused passwords."""
@@ -139,8 +219,8 @@ def score(password: str) -> StrengthResult:
 
     This combines a raw entropy estimate with penalties for patterns
     that make a password easier to guess than its entropy suggests:
-    known-common passwords, repeated characters, sequential runs, and
-    keyboard walks.
+    known-common passwords, repeated characters, sequential runs,
+    keyboard walks, and dates.
     """
     if not password:
         return StrengthResult(0, 0.0, 0, frozenset(), ("empty password",))
@@ -159,6 +239,8 @@ def score(password: str) -> StrengthResult:
         warnings.append("contains a sequential run of characters, e.g. abcd or 4321")
     if contains_keyboard_walk(password):
         warnings.append("contains a keyboard walk, e.g. qwerty or asdf")
+    if contains_date_pattern(password):
+        warnings.append("contains what looks like a date, e.g. a birth year")
     if length < 8:
         warnings.append("shorter than 8 characters")
 
